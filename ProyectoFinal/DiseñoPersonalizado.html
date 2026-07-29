@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motor DC - Apple Style Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #fbfbfd;
+            --card-bg: #ffffff;
+            --text-main: #1d1d1f;
+            --text-muted: #86868b;
+            --burgundy: #800020;
+            --burgundy-light: #9e1b32;
+            --shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 15px rgba(0,0,0,0.03);
+            --border-radius: 18px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header { text-align: center; margin-bottom: 40px; }
+        .header h1 { font-weight: 600; font-size: 2.5rem; margin: 0; letter-spacing: -0.5px; }
+        .header p { color: var(--text-muted); margin-top: 8px; font-size: 1.1rem; }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Reduje un poco el ancho para que quepan las 5 chido */
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            transition: transform 0.2s ease;
+        }
+        .card:hover { transform: translateY(-2px); }
+        .card h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        .card .value { font-size: 2.8rem; font-weight: 600; margin: 10px 0 0 0; color: var(--burgundy); letter-spacing: -1px; }
+
+        .chart-container {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 1200px;
+            height: 400px;
+            margin-bottom: 24px;
+            box-sizing: border-box;
+        }
+
+        .controls {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+            box-sizing: border-box;
+        }
+
+        .controls input {
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid #d2d2d7;
+            font-size: 1rem;
+            font-family: inherit;
+            outline: none;
+            flex-grow: 1;
+            min-width: 200px;
+            transition: border-color 0.2s;
+        }
+        .controls input:focus { border-color: var(--burgundy); }
+
+        .btn-setpoint { background-color: var(--burgundy); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-setpoint:hover { background-color: var(--burgundy-light); }
+        .btn-start { background-color: #1d1d1f; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-start:hover { background-color: #424245; }
+        .btn-dir { background-color: #0071e3; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-dir:hover { background-color: #0077ed; }
+        .btn-stop { background-color: #ff3b30; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-stop:hover { background-color: #ff6961; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Telemetría Motor DC</h1>
+        <p>Panel de Control en Tiempo Real</p>
+    </div>
+
+    <!-- Ahora tenemos 5 tarjetas en la cuadrícula -->
+    <div class="dashboard-grid">
+        
+        <!-- NUEVA TARJETA: Setpoint Objetivo -->
+        <div class="card">
+            <h3>Setpoint</h3>
+            <!-- Le puse color negro oscuro para diferenciarlo de las RPM reales -->
+            <div class="value" id="val-setpoint" style="color: var(--text-main);">--</div>
+        </div>
+
+        <div class="card">
+            <h3>RPM Reales</h3>
+            <div class="value" id="val-rpm">--</div>
+        </div>
+        
+        <div class="card">
+            <h3>Error PID</h3>
+            <div class="value" id="val-error">--</div>
+        </div>
+        
+        <div class="card">
+            <h3>Señal PWM</h3>
+            <div class="value" id="val-pwm">--</div>
+        </div>
+        
+        <div class="card">
+            <h3>Sentido de Giro</h3>
+            <div class="value" id="val-dir" style="font-size: 2.2rem;">--</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="motorChart"></canvas>
+    </div>
+
+    <div class="controls">
+        <input type="number" id="setpoint-input" placeholder="Nuevo Setpoint (0 - 200 RPM)" min="0" max="200">
+        <button class="btn-setpoint" id="btn-update" onclick="enviarSetpoint()">Actualizar Setpoint</button>
+        <button class="btn-start" onclick="mandarComandoDirecto(90)">▶ Inicio (90 RPM)</button>
+        <button class="btn-dir" onclick="cambiarDireccion()">🔄 Invertir Giro</button>
+        <button class="btn-stop" onclick="mandarComandoDirecto(0)">⏹ Paro de Emergencia</button>
+    </div>
+
+    <script>
+        // === CONEXIÓN ===
+        const INFLUX_URL = "http://localhost:8086";
+        const INFLUX_TOKEN = "mi-token-super-secreto-2024"; // ¡PON TU TOKEN AQUÍ!
+        const INFLUX_ORG = "UP-IoT"; 
+        const INFLUX_BUCKET = "iot-verano";
+
+        // === Consulta Flux ===
+        const QUERY_FLUX = `
+        from(bucket: "${INFLUX_BUCKET}")
+          |> range(start: -60s)
+          |> filter(fn: (r) => r["_field"] == "rpm" or r["_field"] == "setpoint" or r["_field"] == "error" or r["_field"] == "pwm" or r["_field"] == "dir")
+          |> last()
+        `;
+
+        const ctx = document.getElementById('motorChart').getContext('2d');
+        const maxDataPoints = 60; 
+        
+        const motorChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(maxDataPoints).fill(''),
+                datasets: [
+                    {
+                        label: 'RPM Reales',
+                        data: Array(maxDataPoints).fill(null),
+                        borderColor: '#800020',
+                        backgroundColor: 'rgba(128, 0, 32, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        fill: true
+                    },
+                    {
+                        label: 'Setpoint',
+                        data: Array(maxDataPoints).fill(null),
+                        borderColor: '#86868b',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        tension: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false, 
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+        async function fetchInfluxData() {
+            try {
+                const response = await fetch(`${INFLUX_URL}/api/v2/query?org=${INFLUX_ORG}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${INFLUX_TOKEN}`,
+                        'Content-Type': 'application/vnd.flux',
+                        'Accept': 'application/csv'
+                    },
+                    body: QUERY_FLUX
+                });
+
+                if (!response.ok) return;
+
+                const csv = await response.text();
+                
+                let currentData = { rpm: 0, setpoint: 0, error: 0, pwm: 0, dir: 1 };
+                const lines = csv.split('\n');
+                let valIdx = -1; let fieldIdx = -1;
+                
+                for(let i = 0; i < lines.length; i++) {
+                    const cols = lines[i].split(',');
+                    if (cols.includes('_value') && cols.includes('_field')) {
+                        valIdx = cols.indexOf('_value'); fieldIdx = cols.indexOf('_field');
+                        continue;
+                    }
+                    if (valIdx !== -1 && fieldIdx !== -1 && cols[fieldIdx]) {
+                        const field = cols[fieldIdx].trim();
+                        const val = parseFloat(cols[valIdx]);
+                        if(currentData[field] !== undefined) { currentData[field] = val; }
+                    }
+                }
+
+                // Actualizar Setpoint (NUEVA TARJETA)
+                document.getElementById('val-setpoint').innerText = currentData.setpoint.toFixed(1);
+
+                // Actualizar RPM y PWM
+                document.getElementById('val-rpm').innerText = currentData.rpm.toFixed(1);
+                document.getElementById('val-pwm').innerText = Math.round(currentData.pwm);
+                
+                // Actualizar Tarjeta de Dirección
+                const dirElement = document.getElementById('val-dir');
+                if (currentData.dir === 1) {
+                    dirElement.innerText = "Horario ↻";
+                    dirElement.style.color = "#1d1d1f"; 
+                } else {
+                    dirElement.innerText = "Antihorario ↺";
+                    dirElement.style.color = "#0071e3"; 
+                }
+                
+                // Semáforo PID
+                const errorElement = document.getElementById('val-error');
+                const errorValue = Math.abs(currentData.error);
+                errorElement.innerText = currentData.error.toFixed(1);
+
+                if (errorValue > 30) {
+                    errorElement.style.color = '#ff3b30'; // Rojo
+                } else if (errorValue > 10) {
+                    errorElement.style.color = '#ff9500'; // Naranja
+                } else {
+                    errorElement.style.color = '#34c759'; // Verde
+                }
+
+                motorChart.data.datasets[0].data.push(currentData.rpm);
+                motorChart.data.datasets[1].data.push(currentData.setpoint);
+                
+                if (motorChart.data.datasets[0].data.length > maxDataPoints) {
+                    motorChart.data.datasets[0].data.shift();
+                    motorChart.data.datasets[1].data.shift();
+                }
+                
+                motorChart.update();
+            } catch (error) { console.error("Error en el fetch:", error); }
+        }
+
+        setInterval(fetchInfluxData, 1000);
+        fetchInfluxData();
+
+        async function mandarComandoDirecto(valor) {
+            try {
+                await fetch(`http://localhost:8000/enviar_setpoint/${valor}`, { method: 'POST' });
+            } catch (error) { console.error("Error en FastAPI:", error); }
+        }
+
+        async function cambiarDireccion() {
+            try {
+                await fetch(`http://localhost:8000/cambiar_direccion`, { method: 'POST' });
+            } catch (error) { console.error("Error en FastAPI:", error); }
+        }
+
+        async function enviarSetpoint() {
+            const inputVal = document.getElementById('setpoint-input').value;
+            const nuevoSetpoint = parseFloat(inputVal);
+            
+            if(inputVal === "") return;
+            if(nuevoSetpoint < 0 || nuevoSetpoint > 200) {
+                alert("El Setpoint debe estar entre 0 y 200 RPM.");
+                document.getElementById('setpoint-input').value = "";
+                return;
+            }
+
+            await mandarComandoDirecto(nuevoSetpoint);
+            document.getElementById('setpoint-input').value = ""; 
+        }
+    </script>
+</body>
+</html>
